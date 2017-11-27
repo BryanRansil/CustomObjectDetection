@@ -1,4 +1,5 @@
 import pytumblr
+import urllib
 
 # Authenticate via API Key
 client = pytumblr.TumblrRestClient('5tpUWunGLQwglO70dKIURJ6FkYTfs4aPSyFKb01Q4qD4M4LMks')
@@ -14,7 +15,10 @@ for offset in range(0, numPosts, 20) :
     if postResponse.get('posts', []) != []:
         postList = postResponse.get('posts', [])
         for post in postList :
-            if len(post.get('photos', [])) <= 1 and 'pose' in post.get('tags') :
-                numCollectedPosts += 1
+            if len(post.get('photos', [])) == 1 and 'pose' in post.get('tags') :
+                photoEntry = post.get('photos', [])[0].get('original_size')
+                testfile = urllib.URLopener()
+                testfile.retrieve(photoEntry.get('url'), post.get('slug', 'default'))
+
 
 print numCollectedPosts
