@@ -9,4 +9,5 @@ postResponse = client.posts(blog + '.tumblr.com', type='photo')
 if postResponse.get('posts', []) != []:
     postList = postResponse.get('posts', [])
     for post in postList :
-        print post.get('tags')
+        if len(post.get('photos', [])) <= 1 and 'pose' in post.get('tags') :
+            print "Here!"
