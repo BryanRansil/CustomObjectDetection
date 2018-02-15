@@ -17,11 +17,10 @@ r"""Convert raw PASCAL dataset to TFRecord for object_detection.
 
 Example usage:
     python create_pascal_tf_record_custom_class.py \
-        --data_dir=/home/user/project/xml_folder \
-        --image_dir=/home/user/project/image_folder
+        --data_dir=/home/user/project/xml_root_folder \
         --custom_class=pose \
-        --training_type=training \
-        --output_path=/home/user/pascal.record
+        --output_path=/home/user/project/pascal.record \
+        --label_map_path=/home/user/project/pascal_label_map.pbtxt
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -42,13 +41,10 @@ from object_detection.utils import label_map_util
 
 
 flags = tf.app.flags
-flags.DEFINE_string('data_dir', '', 'Root directory to raw PASCAL VOC dataset.')
-flags.DEFINE_string('image_dir', '', 'Root directory to image dataset.')
+flags.DEFINE_string('data_dir', '', 'Root directory to raw pascal dataset.'
+                                    ' The actual data is expected to be sorted'
+                                    ' by custom class.')
 flags.DEFINE_string('training_type', 'training', 'Whether to look in the training or verification folder')
-flags.DEFINE_string('set', 'train', 'Convert training set, validation set or '
-                    'merged set.')
-flags.DEFINE_string('annotations_dir', 'Annotations',
-                    '(Relative) path to annotations directory.')
 flags.DEFINE_string('custom_class', 'pose', 'Desired class to detect.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
 flags.DEFINE_string('label_map_path', 'data/pascal_label_map.pbtxt',
@@ -57,15 +53,10 @@ flags.DEFINE_boolean('ignore_difficult_instances', False, 'Whether to ignore '
                      'difficult instances')
 FLAGS = flags.FLAGS
 
-SETS = ['train', 'val', 'trainval', 'test']
-YEARS = ['VOC2007', 'VOC2012', 'merged']
-
-
 def dict_to_tf_example(data,
                        dataset_directory,
                        label_map_dict,
-                       ignore_difficult_instances=False,
-                       image_subdirectory='JPEGImages'):
+                       ignore_difficult_instances=False):
   """Convert XML derived dict to tf.Example proto.
 
   Notice that this function normalizes the bounding box coordinates provided
@@ -78,8 +69,6 @@ def dict_to_tf_example(data,
     label_map_dict: A map from string label names to integers ids.
     ignore_difficult_instances: Whether to skip difficult instances in the
       dataset  (default: False).
-    image_subdirectory: String specifying subdirectory within the
-      PASCAL dataset directory holding the actual image data.
 
   Returns:
     example: The converted tf.Example.
@@ -87,9 +76,9 @@ def dict_to_tf_example(data,
   Raises:
     ValueError: if the image pointed to by data['filename'] is not a valid JPEG
   """
-  img_path = os.path.join(data['folder'], image_subdirectory, data['filename'])
+  img_path = os.path.join(data['folder'], data['filename'])
   full_path = os.path.join(dataset_directory, img_path)
-  print(img_path, ' ', full_path)
+  print(img_path + " " + full_path)
   with tf.gfile.GFile(full_path, 'rb') as fid:
     encoded_image = fid.read()
   encoded_image_io = io.BytesIO(encoded_image)
@@ -150,28 +139,18 @@ def dict_to_tf_example(data,
 
 
 def main(_):
-  if FLAGS.set not in SETS:
-    raise ValueError('set must be in : {}'.format(SETS))
-
   data_dir = FLAGS.data_dir
   custom_class = FLAGS.custom_class
-  image_dir = FLAGS.image_dir
   training_type = FLAGS.training_type
+  label_map_dict = label_map_util.get_label_map_dict(FLAGS.label_map_path)
 
   writer = tf.python_io.TFRecordWriter(FLAGS.output_path)
 
-  label_map_dict = label_map_util.get_label_map_dict(FLAGS.label_map_path)
-
   logging.info('Reading from custom PASCAL %s dataset.', custom_class)
   examples_path = os.path.join(data_dir, custom_class, training_type)
-  print(examples_path)
-  print("aka " + data_dir + " + " + custom_class + " + " + training_type)
-  image_path = ""
-  examples_list = glob.glob(os.path.join(examples_path, "*"))
+  examples_list = glob.glob(os.path.join(examples_path, "*.xml"))
+  
   for idx, example in enumerate(examples_list):
-    if example == os.path.join(examples_path, "images") :
-      idx = idx - 1
-      continue
     if idx % 100 == 0:
       logging.info('On image %d of %d', idx, len(examples_list))
     logging.info('About to read %s.', example)
@@ -182,7 +161,7 @@ def main(_):
     data = dataset_util.recursive_parse_xml_to_dict(xml)['annotation']
 
     tf_example = dict_to_tf_example(data, examples_path, label_map_dict,
-                                    FLAGS.ignore_difficult_instances, image_path)
+                                    FLAGS.ignore_difficult_instances)
     writer.write(tf_example.SerializeToString())
 
   writer.close()
