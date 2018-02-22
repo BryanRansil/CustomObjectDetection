@@ -17,10 +17,11 @@ r"""Convert raw PASCAL dataset to TFRecord for object_detection.
 
 Example usage:
     python create_pascal_tf_record_custom_class.py \
-        --data_dir=/home/user/project/xml_root_folder \
+        --data_dir=data \
         --custom_class=pose \
-        --output_path=/home/user/project/pascal.record \
-        --label_map_path=/home/user/project/pascal_label_map.pbtxt
+        --training_type=training \
+        --output_path=records/pose_training.record \
+        --label_map_path=pascal_label_map.pbtxt
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -39,11 +40,10 @@ import tensorflow as tf
 from object_detection.utils import dataset_util
 from object_detection.utils import label_map_util
 
-
 flags = tf.app.flags
 flags.DEFINE_string('data_dir', '', 'Root directory to raw pascal dataset.'
                                     ' The actual data is expected to be sorted'
-                                    ' by custom class.')
+                                    ' by custom_class, then by training_type.')
 flags.DEFINE_string('training_type', 'training', 'Whether to look in the training or verification folder')
 flags.DEFINE_string('custom_class', 'pose', 'Desired class to detect.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
@@ -165,7 +165,6 @@ def main(_):
     writer.write(tf_example.SerializeToString())
 
   writer.close()
-
 
 if __name__ == '__main__':
   tf.app.run()
